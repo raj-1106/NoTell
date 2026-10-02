@@ -12,20 +12,6 @@ contracts/broadcast/
 
 # iden3/contracts (Poseidon Solidity) — Phase 3 dependency, NOT vendored.
 # We reference the deployed PoseidonT4 address rather than importing it;
-# vendoring 4k+ iden3 files into a Phase 1 tag is noise, not signal.# Foundry build outputs
-contracts/out/
-contracts/cache/
-contracts/broadcast/
-
-# contracts/lib/ is intentionally tracked (vendored) — EXCEPT iden3/contracts below.
-# Tradeoff: larger repo, but self-contained on clone — no install step needed.
-# This matters for a hackathon where a judge or emergency rollback
-# must work from a clean clone without manual setup.
-# forge install with no args does nothing without .gitmodules;
-# forge install <pkg> --no-git is what populated lib/ originally.
-
-# iden3/contracts (Poseidon Solidity) — Phase 3 dependency, NOT vendored.
-# We reference the deployed PoseidonT4 address rather than importing it;
 # vendoring 4k+ iden3 files into a Phase 1 tag is noise, not signal.
 contracts/lib/contracts/
 
@@ -71,50 +57,15 @@ cre/.env
 # Scratch scripts
 *.sh
 !start.sh
+*.cjs
+check_state.js
+fetch_claim_event.js
 
-DROPEED_KURU.md
-contracts/lib/contracts/
+# Secret configs
+secrets.yaml
 
-# Circom / snarkjs build outputs (Phase 3)
-circuits/build/*.r1cs
-circuits/build/*.sym
-circuits/build/*.wasm
-circuits/build/*.zkey
-circuits/build/Verifier.sol
-circuits/build/verification_key.json
+# Build folders
+.cre/
+contracts/deployments/
 
-# Trusted setup files (large, fetched on demand)
-circuits/*.ptau
-
-# Node / frontend
-frontend/node_modules/
-frontend/dist/
-frontend/.env
-
-# Envio indexer
-indexer/node_modules/
-indexer/.envio/
-
-# Environment files — never commit secrets
-.env
-.env.*
-!.env.example
-
-# OS / editor noise
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
-
-# CRE
-cre/node_modules/
-cre/.env
-
-# Windows Alternate Data Streams
-*Zone.Identifier
-
-# Scratch scripts
-*.sh
-!start.sh
-
-DROPEED_KURU.md
+DROPPED_KURU.md
