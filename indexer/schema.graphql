@@ -1,0 +1,25 @@
+type Policy @entity {
+  id: ID! # policyId
+  holder: String!
+  notional: BigInt!
+  endBlock: BigInt!
+  state: String! # "Active", "ClaimWindowOpened", "Claimed", "Expired"
+  amountPaid: BigInt
+  claimRoundId: BigInt # Stores the block number when ClaimWindowOpened was emitted
+}
+
+type ClaimEvent @entity {
+  id: ID! # tx hash + log index
+  policyId: BigInt!
+  recipient: String!
+  amount: BigInt!
+  timestamp: BigInt!
+}
+
+type PoolSnapshot @entity {
+  id: ID! # single row '1'
+  totalAssets: BigInt!
+  totalPremiums: BigInt!
+  totalClaimsPaid: BigInt!
+  activePolicies: BigInt!
+}

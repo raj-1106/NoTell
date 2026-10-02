@@ -1,0 +1,25 @@
+name: metropolis-indexer
+description: Envio indexer for PolicyRegistry and InsurancePool on Monad Testnet
+chains:
+  - id: 10143
+    rpc: https://monad-testnet.g.alchemy.com/v2/OOIMS_hWS2oBIZXbMyjTG
+    start_block: 66939000
+    contracts:
+      - name: PolicyRegistry
+        address:
+          - "0xcDF2c6f314FEAB8aC1e0bB89a0F22a9009848b41"
+        handler: src/EventHandlers.ts
+        events:
+          - event: PolicyIssued(uint256 indexed policyId, address indexed holder, uint256 notional, uint256 endBlock)
+          - event: PolicyExpired(uint256 indexed policyId)
+          - event: PolicyClaimed(uint256 indexed policyId, uint256 amountPaid)
+          - event: ClaimWindowOpened(uint256 indexed policyId)
+      - name: InsurancePool
+        address:
+          - "0xEc64c7aF444f6b44f61a140363fA406141fAfde8"
+        handler: src/EventHandlers.ts
+        events:
+          - event: LPDeposit(address indexed provider, uint256 assets, uint256 sharesMinted)
+          - event: LPWithdraw(address indexed provider, uint256 assets, uint256 sharesBurned)
+          - event: PremiumCollected(uint256 indexed policyId, uint256 amount)
+          - event: ClaimPaid(uint256 indexed policyId, address indexed recipient, uint256 amount)

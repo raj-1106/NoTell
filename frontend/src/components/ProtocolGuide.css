@@ -1,0 +1,72 @@
+.protocol-guide {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+}
+
+.protocol-guide__step {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-left: 1.5rem;
+  position: relative;
+  opacity: 0.4;
+  transition: opacity 0.3s ease;
+}
+
+.protocol-guide__step::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.25rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.protocol-guide__step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 0.25rem;
+  top: 1rem;
+  bottom: -1rem;
+  width: 1px;
+  background: var(--rule);
+}
+
+.protocol-guide__step--current {
+  opacity: 1;
+}
+
+.protocol-guide__step--current::before {
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+
+.protocol-guide__step--done {
+  opacity: 0.7;
+}
+
+.protocol-guide__step--done::before {
+  background: var(--success);
+}
+
+.protocol-guide__title {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.protocol-guide__desc {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}

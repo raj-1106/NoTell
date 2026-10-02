@@ -1,0 +1,75 @@
+/* src/components/ErrorToastStack.css */
+/* Reuses the project's existing dark-ledger tokens */
+.error-toast-stack {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 1000;
+  max-width: 360px;
+}
+
+.error-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: var(--bg-dark, #111411);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  animation: toast-in 0.18s ease-out;
+}
+
+.toast-error {
+  border: 1px solid var(--error, #e57373);
+}
+
+.toast-success {
+  border: 1px solid var(--success, #81c784);
+}
+
+.toast-info {
+  border: 1px solid var(--info, #64b5f6);
+}
+
+.error-toast__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.error-toast__title {
+  font-family: var(--font-primary, serif);
+  font-weight: 600;
+  color: var(--text, #f2f2f2);
+  font-size: 1rem;
+}
+
+.error-toast__message {
+  font-family: var(--font-primary, sans-serif);
+  color: var(--text-muted, #a0a0a8);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.error-toast__close {
+  background: none;
+  border: none;
+  color: var(--text-muted, #a0a0a8);
+  cursor: pointer;
+  font-size: 1.5rem;
+  line-height: 1;
+  padding: 0;
+  margin-left: auto;
+}
+
+.error-toast__close:hover {
+  color: var(--text);
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}

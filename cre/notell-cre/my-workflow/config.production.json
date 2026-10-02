@@ -1,0 +1,11 @@
+{
+  "schedule": "*/5 * * * *",
+  "evms": [
+    {
+      "chainSelectorName": "monad-testnet",
+      "contractAddress": "0x9f0aab4ee440bc169f416ce89d86f1f8aa8d466a",
+      "registryAddress": "0xf5ea613536ebed7456716d945ae16020805c4b6f"
+    }
+  ]
+}
+
