@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BrowserProvider, JsonRpcProvider, Wallet, Contract, formatEther, parseEther } from 'ethers';
+import { BrowserProvider, Contract, formatEther, parseEther } from 'ethers';
 // @ts-ignore
 import * as snarkjs from 'snarkjs';
 const deployments = {

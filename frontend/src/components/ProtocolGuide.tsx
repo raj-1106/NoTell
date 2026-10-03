@@ -10,7 +10,7 @@ export function ProtocolGuide(input: StepInput) {
 
   return (
     <div className="protocol-guide">
-      {ORDER.filter((s) => s !== "no_policy" || current === "no_policy").map((step, i) => {
+      {ORDER.filter((s) => s !== "no_policy" || current === "no_policy").map((step) => {
         const stepIndex = ORDER.indexOf(step);
         const copy = STEP_COPY[step];
         const status = stepIndex < currentIndex ? "done" : stepIndex === currentIndex ? "current" : "upcoming";
