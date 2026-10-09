@@ -68,4 +68,20 @@ secrets.yaml
 .cre/
 contracts/deployments/
 
+# Vendored Chainlink lib — large, not authored by this project
+contracts/lib/chainlink-brownie-contracts/
+
+# CRE build artefacts
+cre/notell-cre/my-workflow/.cre_build_tmp.js
+
+# AI tooling (Envio Claude skill files)
+indexer/.claude/
+
+# Vite/React boilerplate assets (not used by this project)
+frontend/src/assets/react.svg
+frontend/src/assets/vite.svg
+
+# Envio boilerplate ABI example
+indexer/abis/greeter-abi.json
+
 DROPPED_KURU.md
