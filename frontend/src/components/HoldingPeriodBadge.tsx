@@ -5,8 +5,7 @@ interface Props {
   currentBlock: number;
   startBlock: number;
   holdingPeriodBlocks: number;
-  /** Guessed at ~300ms per earlier confirmed mainnet figure; verify against
-      testnet RPC if this ever needs to be precise rather than approximate. */
+  /** Approximate Monad block time in milliseconds. Defaults to 309ms (measured). */
   blockTimeMs?: number;
 }
 

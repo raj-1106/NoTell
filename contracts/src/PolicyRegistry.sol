@@ -212,9 +212,6 @@ contract PolicyRegistry {
         emit PolicyClaimed(policyId, amountPaid);
     }
 
-    // ─── Phase 2a stub ────────────────────────────────────────────────────────
-    // checkHealthFactors() is implemented in Phase 2 when CRE is wired up.
-    // Declared here as a no-op so the ABI is stable and tests can call it.
 
     /// @notice Called by the CRE monitoring workflow. Posts a position commitment
     ///         for each policy and emits ClaimWindowOpened for threshold crossers.
@@ -246,5 +243,3 @@ contract PolicyRegistry {
     }
 
 }
-// No _currentRatio() helper — Phase 2 removed the ratio-based check.
-// getAccountLiquidity is called inline in buyPolicy and checkHealthFactors.

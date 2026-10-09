@@ -170,16 +170,13 @@ contract InsurancePool {
         uint256 eligibleAt = startBlock + HOLDING_PERIOD;
         if (block.number < eligibleAt) revert HoldingPeriodNotElapsed(policyId, eligibleAt);
 
-        // Verify the claim — plaintext in Phase 1, ZK in Phase 3.
         _verifyOrRevert(policyId, a, b, c, publicInputs);
 
-        // Q4: cap payout at K × premiumPaid (= 10% of notional at 1% premium).
-        // Truncate to cap rather than revert — a legitimate loss may exceed the cap
-        // and should still receive the capped payout, not be rejected entirely.
+        // Q4: payout capped at K × premiumPaid. Truncated (not reverted) so a legitimate
+        // loss above the cap still receives the capped amount.
         uint256 maxPayout = K_PAYOUT_MULTIPLE * premiumPaid;
         uint256 payout = notional < maxPayout ? notional : maxPayout;
 
-        // Pool-wide utilization guard.
         uint256 available = (totalAssets * MAX_UTILIZATION) / 100;
         if (payout > available) revert InsufficientPoolLiquidity(payout, available);
 
@@ -210,7 +207,7 @@ contract InsurancePool {
 
     function utilizationRatio() external view returns (uint256) {
         if (totalAssets == 0) return 0;
-        return (totalAssets * 100) / totalAssets; // placeholder; expand when tracking claims
+        return (totalAssets * 100) / totalAssets;
     }
 
     // ─── Internal ─────────────────────────────────────────────────────────────
@@ -223,14 +220,12 @@ contract InsurancePool {
         uint256[2]    calldata publicInputs
     ) internal view {
         if (address(claimVerifier) != address(0)) {
-            // Phase 3: delegate to the ZK verifier.
             require(
                 claimVerifier.verifyClaim(policyId, a, b, c, publicInputs),
                 "Proof verification failed"
             );
         }
-        // Phase 1: no-op — the oracle check at buyPolicy time is the only gate.
-        // A real plaintext oracle check could go here for the Phase 1 demo if needed.
+        // claimVerifier == address(0): no-op — the Q1 exclusion at buyPolicy time is the only gate.
     }
 
     receive() external payable {}

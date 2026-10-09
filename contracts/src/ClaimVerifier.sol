@@ -34,21 +34,17 @@ contract ClaimVerifier is IClaimVerifier {
         uint256[2] calldata a,
         uint256[2][2] calldata b,
         uint256[2] calldata c,
-        uint256[2] calldata publicInputs // [roundId, commitment] (as passed from InsurancePool)
+        uint256[2] calldata publicInputs // [roundId, commitment]
     ) external view returns (bool) {
         uint256 roundId = publicInputs[0];
         uint256 proofCommitment = publicInputs[1];
-        
-        // Staleness check: The roundId is the block.number when the commitment was posted.
+
         if (block.number > roundId + MAX_PROOF_AGE_BLOCKS) revert StaleProof();
 
-        // Lookup commitment from PolicyRegistry
         uint256 storedCommitment = registry.commitments(policyId, roundId);
-        
         if (storedCommitment == 0) revert ZeroCommitment();
         if (storedCommitment != proofCommitment) revert InvalidCommitment();
 
-        // Verify the Groth16 proof
         bool isValid = groth16Verifier.verifyProof(a, b, c, publicInputs);
         if (!isValid) revert ProofFailed();
         return isValid;

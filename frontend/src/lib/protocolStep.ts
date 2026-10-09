@@ -8,7 +8,7 @@ export type ProtocolStep =
 export interface StepInput {
   hasPolicy: boolean;
   isHoldingPeriodElapsed: boolean;
-  hasCommitment: boolean; // claimRoundId is non-null
+  hasCommitment: boolean;
   isClaimed: boolean;
 }
 

@@ -3,7 +3,6 @@ import type { Policy, PoolSnapshot, ClaimEvent } from "envio";
 
 const GLOBAL_POOL_ID = "1";
 
-// Helper to initialize PoolSnapshot if it doesn't exist
 const getPoolSnapshot = async (context: any): Promise<PoolSnapshot> => {
   let pool = await context.PoolSnapshot.get(GLOBAL_POOL_ID);
   if (!pool) {
@@ -18,9 +17,7 @@ const getPoolSnapshot = async (context: any): Promise<PoolSnapshot> => {
   return pool;
 };
 
-// ==========================================
-// PolicyRegistry Handlers
-// ==========================================
+
 
 indexer.onEvent(
   { contract: "PolicyRegistry", event: "PolicyIssued" },
@@ -94,9 +91,7 @@ indexer.onEvent(
   }
 );
 
-// ==========================================
-// InsurancePool Handlers
-// ==========================================
+
 
 indexer.onEvent(
   { contract: "InsurancePool", event: "LPDeposit" },
