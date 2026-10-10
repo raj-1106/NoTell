@@ -259,7 +259,7 @@ function App() {
             }
           }
         `;
-        const res = await fetch("https://indexer.dev.hyperindex.xyz/3263f2e/v1/graphql", {
+        const res = await fetch("https://indexer.dev.hyperindex.xyz/267fc53/v1/graphql", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ query })
@@ -566,7 +566,7 @@ function App() {
                           }
                         }
                       `;
-                      const res = await fetch("https://indexer.dev.hyperindex.xyz/3263f2e/v1/graphql", {
+                      const res = await fetch("https://indexer.dev.hyperindex.xyz/267fc53/v1/graphql", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ query })
