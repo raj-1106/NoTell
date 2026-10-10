@@ -327,8 +327,17 @@ function App() {
       appendLog("ZK Proof computed successfully (1.2s)");
       await new Promise(r => setTimeout(r, 500));
       appendLog("Submitting proof to InsurancePool smart contract...");
-      const currentNonce = await signer.provider!.getTransactionCount(account, "latest");
+      // Fetch nonce directly from RPC, bypassing MetaMask's stale cache
+      const nonceRes = await fetch("https://testnet-rpc.monad.xyz/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_getTransactionCount", params: [account, "latest"] })
+      });
+      const nonceData = await nonceRes.json();
+      const currentNonce = parseInt(nonceData.result, 16);
+      console.log("[NoTell] On-chain nonce from direct RPC:", currentNonce);
       const tx = await pool.processClaim(claimPolicyId, a, b, c, publicSignals, { nonce: currentNonce });
+
       await tx.wait();
       appendLog(`✅ Claim confirmed! Tx: ${tx.hash.slice(0, 10)}...${tx.hash.slice(-8)}`);
       localStorage.setItem(`notell_proof_${claimPolicyId}`, JSON.stringify(localLogs));
