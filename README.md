@@ -42,7 +42,7 @@ The protocol's time-based parameters (`HOLDING_PERIOD`, `MAX_PROOF_AGE_BLOCKS`) 
 
 **Envio — Best Use of Envio.** The frontend queries a live Envio GraphQL indexer for policy state and claim-window data, with a visible fallback (direct `eth_call` scan) if the indexer is unreachable. The fallback is surfaced to the user, not silently substituted.
 
-**Alchemy — Best Projects using Alchemy.** Every contract deployment, wiring verification, and Keeper transaction runs through a dedicated Alchemy RPC endpoint. The Envio indexer also syncs via Alchemy, since HyperSync requires an auth token not yet available for Monad testnet.
+**Alchemy — Best Projects using Alchemy.** The keeper and the Envio indexer sync use Alchemy RPC endpoints. Some one-off checks and earlier local runs used the public Monad RPC.
 
 ## Security posture
 

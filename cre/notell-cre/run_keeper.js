@@ -62,6 +62,9 @@ async function main() {
       }
     } catch (err) {
       console.error(`[Keeper] Network or polling error: ${err.message}`);
+      if (err.code) console.error(`  -> Code: ${err.code}`);
+      if (err.cause) console.error(`  -> Cause: ${err.cause}`);
+      if (err.errors) console.error(`  -> Errors: ${err.errors}`);
     }
     
     await new Promise(resolve => setTimeout(resolve, 5000));
