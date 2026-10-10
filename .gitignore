@@ -85,3 +85,4 @@ frontend/src/assets/vite.svg
 indexer/abis/greeter-abi.json
 
 DROPPED_KURU.md
+*.js
