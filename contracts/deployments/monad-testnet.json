@@ -1,8 +1,10 @@
 {
-  "InsurancePool"   : "0xEc64c7aF444f6b44f61a140363fA406141fAfde8",
-  "PolicyRegistry"  : "0xcDF2c6f314FEAB8aC1e0bB89a0F22a9009848b41",
-  "CREBridge"       : "0x8469bdCe94BF2A44423D5A1216d8E441f2d82AA7",
-  "MockComptroller" : "0xb00761A2027dcb1484ea8d8d2C2C4Bc62e2B9C2C",
-  "ClaimVerifier"   : "0xddD0206C1AB4aE2915a77911FbF30e4C1702179A",
-  "Groth16Verifier" : "0x420521502889D2fdAAaE93E95219FD31d82D6d32"
+  "network": "monad-testnet",
+  "chainId": 10143,
+  "InsurancePool":    "0x9f9dd3a65d39cde4657bab7d100eb93ceffc07e9",
+  "PolicyRegistry":  "0x87fe1f2479be5d332dde97bc649370e300d64c55",
+  "MockComptroller": "0x3d702b11bb88fac0151714a37414ef90866dcb2e",
+  "CREBridge":       "0xb2eaed1122cd332f46ad9841f6ccf4ee74cf6295",
+  "ClaimVerifier":   "0xb78C72843e0Fc5a66C1BeD1f83B9b1CE9d5e5c81",
+  "Groth16Verifier": "0x2da6F7DD4157f46e3A1a8e0410C6da674Ed86BfE"
 }

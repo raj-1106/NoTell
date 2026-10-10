@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import {IPeridotComptroller} from "./interfaces/IPeridotComptroller.sol";
-import {IPoseidon}           from "./interfaces/IPoseidon.sol";
 
 /// @title PolicyRegistry
 /// @notice Issues and tracks NoTell liquidation-insurance policies.
@@ -20,8 +19,9 @@ import {IPoseidon}           from "./interfaces/IPoseidon.sol";
 ///   Q3 — Block-based expiry: endBlock = block.number + durationBlocks.
 ///   Q4 — Self-inflicted cap enforced in InsurancePool.processClaim, not here.
 ///
-/// Phase 2a extends this contract with checkHealthFactors() and the commitments
-/// mapping, both declared here so the storage layout is stable.
+/// Phase 2a: postCommitment() lets the keeper post Poseidon commitments computed
+/// off-chain, emitting liquidity and shortfall in ClaimWindowOpened so the
+/// frontend can reconstruct ZK inputs without archive eth_call queries.
 
 contract PolicyRegistry {
     // ─── Types ─────────────────────────────────────────────────────────────
@@ -44,16 +44,10 @@ contract PolicyRegistry {
 
     // ─── State ─────────────────────────────────────────────────────────────
 
-    /// @notice Peridot Comptroller — used to check position health at purchase
-    ///         and by checkHealthFactors() in Phase 2a.
+    /// @notice Peridot Comptroller — used to check position health at purchase.
     IPeridotComptroller public immutable comptroller;
 
     /// @notice Deployer address. Only this address may call setInsurancePool().
-    ///         This is a deploy-time trust assumption: whoever deploys the registry
-    ///         controls where premiums and claims flow until setInsurancePool() is called.
-    ///         That window is one transaction wide (deploy → setInsurancePool in Deploy.s.sol),
-    ///         but it is a real trust assumption and is named here rather than left implicit.
-    ///         See ATTACK_SURFACE.md.
     address public immutable deployer;
 
     /// @notice The InsurancePool contract — the only address allowed to call markClaimed.
@@ -63,17 +57,8 @@ contract PolicyRegistry {
     mapping(uint256 => Policy) public policies;
     uint256 public nextPolicyId;
 
-    /// @notice Tracks consecutive CRE polls where shortfall > 0. Capped at 2 to prevent overflow.
-    mapping(uint256 => uint16) public consecutiveShortfalls;
-
-    /// @notice Authorized CRE caller address
-    address public creAddress;
-
-    /// @notice Deployed PoseidonT4 contract for computing commitments
-    IPoseidon public poseidon;
-
-    /// @notice CRE-posted position commitments. Written by checkHealthFactors (Phase 2a).
-    ///         commitments[policyId][blockNumber] = Poseidon(liquidity, shortfall, blockNumber)
+    /// @notice Keeper-posted position commitments.
+    ///         commitments[policyId][roundId] = Poseidon(liquidity, shortfall, roundId)
     ///         Declared here so ClaimVerifier can read it via the public getter.
     mapping(uint256 => mapping(uint256 => uint256)) public commitments;
 
@@ -87,14 +72,19 @@ contract PolicyRegistry {
     );
     event PolicyExpired(uint256 indexed policyId);
     event PolicyClaimed(uint256 indexed policyId, uint256 amountPaid);
-    /// @notice Emitted by checkHealthFactors (Phase 2a) when shortfall > 0 for a covered position.
-    event ClaimWindowOpened(uint256 indexed policyId);
+    /// @notice Emitted by postCommitment() when the keeper detects a shortfall.
+    /// @dev    liquidity and shortfall are included so the frontend can reconstruct
+    ///         ZK circuit inputs without needing archive eth_call queries.
+    event ClaimWindowOpened(
+        uint256 indexed policyId,
+        uint256          roundId,
+        uint256          liquidity,
+        uint256          shortfall
+    );
 
     // ─── Errors ─────────────────────────────────────────────────────────────
 
-    /// @notice Purchase rejected: position already has shortfall (Q1 exclusion).
     error PositionAlreadyLiquidatable(uint256 policyId);
-    /// @notice Comptroller returned a non-zero error code.
     error ComptrollerError(uint256 errorCode);
     error PolicyNotActive(uint256 policyId);
     error PolicyNotExpired(uint256 policyId, uint256 endBlock);
@@ -104,12 +94,6 @@ contract PolicyRegistry {
     error PoolAlreadySet();
     error ZeroAddress();
     error NotDeployer();
-    error NotAuthorizedCRE();
-
-    modifier onlyCRE() {
-        if (msg.sender != creAddress) revert NotAuthorizedCRE();
-        _;
-    }
 
     // ─── Constructor ─────────────────────────────────────────────────────────
 
@@ -119,31 +103,11 @@ contract PolicyRegistry {
     }
 
     /// @notice Set the InsurancePool address once after both contracts are deployed.
-    ///         One-time initializer — cannot be changed after it is set.
-    ///         Restricted to the deployer address captured at construction time.
-    ///         The deploy-time trust window (between deploy and this call) is documented
-    ///         in ATTACK_SURFACE.md as a known, named assumption.
     function setInsurancePool(address _insurancePool) external {
         if (msg.sender != deployer)       revert NotDeployer();
         if (insurancePool != address(0))  revert PoolAlreadySet();
         if (_insurancePool == address(0)) revert ZeroAddress();
         insurancePool = _insurancePool;
-    }
-
-    /// @notice One-time setter for the CRE monitoring workflow caller address.
-    function setCREAddress(address _cre) external {
-        if (msg.sender != deployer) revert NotDeployer();
-        if (creAddress != address(0)) revert PoolAlreadySet(); // reuse error for simplicity
-        if (_cre == address(0)) revert ZeroAddress();
-        creAddress = _cre;
-    }
-
-    /// @notice One-time setter for the Poseidon contract address.
-    function setPoseidon(address _poseidon) external {
-        if (msg.sender != deployer) revert NotDeployer();
-        if (address(poseidon) != address(0)) revert PoolAlreadySet();
-        if (_poseidon == address(0)) revert ZeroAddress();
-        poseidon = IPoseidon(_poseidon);
     }
 
     // ─── External functions ───────────────────────────────────────────────────
@@ -152,11 +116,6 @@ contract PolicyRegistry {
     /// @param notional       Covered amount in wei.
     /// @param durationBlocks Number of blocks the policy is active for.
     /// @return policyId      The newly issued policy ID.
-    ///
-    /// Q1 exclusion: reverts if msg.sender's Peridot position currently has shortfall > 0
-    /// (i.e. is already liquidatable). No ratio gradient — binary check only.
-    /// Rationale: Compound-style liquidity values are absolute USD amounts, not scale-invariant
-    /// ratios. Any normalisation against `notional` (buyer-chosen) would be gameable.
     function buyPolicy(
         uint256 notional,
         uint256 durationBlocks
@@ -184,8 +143,6 @@ contract PolicyRegistry {
 
         emit PolicyIssued(policyId, msg.sender, notional, block.number + durationBlocks);
 
-        // Forward premium to InsurancePool via collectPremium.
-        // Pool address must be set via setInsurancePool() before any policy is purchased.
         require(insurancePool != address(0), "Pool not configured");
         (bool ok,) = insurancePool.call{value: premium}(
             abi.encodeWithSignature("collectPremium(uint256)", policyId)
@@ -194,7 +151,6 @@ contract PolicyRegistry {
     }
 
     /// @notice Transition an expired policy to the Expired state.
-    ///         Callable by anyone — no access restriction needed.
     function expirePolicy(uint256 policyId) external {
         Policy storage p = policies[policyId];
         if (p.state != PolicyState.Active) revert PolicyNotActive(policyId);
@@ -212,34 +168,38 @@ contract PolicyRegistry {
         emit PolicyClaimed(policyId, amountPaid);
     }
 
+    // ─── Phase 2a: Keeper commitment posting ──────────────────────────────────
+    //
+    // checkHealthFactors() is kept as an ABI-stable no-op so CREBridge can call
+    // it without reverting. Real commitment posting uses postCommitment() below.
 
-    /// @notice Called by the CRE monitoring workflow. Posts a position commitment
-    ///         for each policy and emits ClaimWindowOpened for threshold crossers.
-    function checkHealthFactors(uint256[] calldata policyIds) external onlyCRE {
-        for (uint i = 0; i < policyIds.length; i++) {
-            address holder = policies[policyIds[i]].holder;
-            
-            (uint256 err, uint256 liquidity, uint256 shortfall) = comptroller.getAccountLiquidity(holder);
-            if (err != 0) continue; // Skip on comptroller error
-            
-            if (shortfall > 0) {
-                // Cap increment to prevent overflow on positions that stay underwater for days
-                if (consecutiveShortfalls[policyIds[i]] < 2) {
-                    consecutiveShortfalls[policyIds[i]]++;
-                }
-                
-                // Persistence check: only commit if shortfall observed across 2 consecutive polls (5 mins)
-                if (consecutiveShortfalls[policyIds[i]] >= 2) {
-                    uint256[3] memory inputs = [liquidity, shortfall, block.number];
-                    uint256 commitment = poseidon.poseidon(inputs);
-                    commitments[policyIds[i]][block.number] = commitment;
-                    emit ClaimWindowOpened(policyIds[i]);
-                }
-            } else {
-                // Reset counter if position heals or is collateralized
-                consecutiveShortfalls[policyIds[i]] = 0;
-            }
-        }
+    /// @notice No-op stub kept for CREBridge ABI compatibility.
+    function checkHealthFactors(uint256[] calldata /*policyIds*/) external {
+        // Intentional no-op. See postCommitment().
+    }
+
+    /// @notice Called by the keeper after computing Poseidon(liquidity, shortfall, roundId)
+    ///         off-chain. Stores the commitment on-chain and emits ClaimWindowOpened
+    ///         with the raw inputs so Envio can index them, eliminating archive eth_call
+    ///         queries in the frontend.
+    /// @param policyId   The policy being monitored.
+    /// @param roundId    Block number used as the round identifier.
+    /// @param liquidity  getAccountLiquidity liquidity value at roundId.
+    /// @param shortfall  getAccountLiquidity shortfall value at roundId.
+    /// @param commitment Poseidon(liquidity, shortfall, roundId) computed off-chain.
+    function postCommitment(
+        uint256 policyId,
+        uint256 roundId,
+        uint256 liquidity,
+        uint256 shortfall,
+        uint256 commitment
+    ) external {
+        Policy storage p = policies[policyId];
+        if (p.state != PolicyState.Active) revert PolicyNotActive(policyId);
+        require(shortfall > 0, "No shortfall: position is healthy");
+
+        commitments[policyId][roundId] = commitment;
+        emit ClaimWindowOpened(policyId, roundId, liquidity, shortfall);
     }
 
 }

@@ -30,6 +30,8 @@ indexer.onEvent(
       state: "Active",
       amountPaid: undefined,
       claimRoundId: undefined,
+      claimLiquidity: undefined,
+      claimShortfall: undefined,
     };
     context.Policy.set(policy);
 
@@ -49,7 +51,9 @@ indexer.onEvent(
       context.Policy.set({ 
         ...policy, 
         state: "ClaimWindowOpened",
-        claimRoundId: BigInt(event.block.number)
+        claimRoundId: event.params.roundId,
+        claimLiquidity: event.params.liquidity,
+        claimShortfall: event.params.shortfall,
       });
     }
   }

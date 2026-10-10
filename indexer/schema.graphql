@@ -5,7 +5,9 @@ type Policy @entity {
   endBlock: BigInt!
   state: String! # "Active", "ClaimWindowOpened", "Claimed", "Expired"
   amountPaid: BigInt
-  claimRoundId: BigInt # Stores the block number when ClaimWindowOpened was emitted
+  claimRoundId: BigInt    # block number emitted in ClaimWindowOpened
+  claimLiquidity: BigInt  # liquidity value from getAccountLiquidity at claim round
+  claimShortfall: BigInt  # shortfall value from getAccountLiquidity at claim round
 }
 
 type ClaimEvent @entity {

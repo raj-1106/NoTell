@@ -1,7 +1,7 @@
 # Foundry build outputs
 contracts/out/
 contracts/cache/
-contracts/broadcast/
+# contracts/broadcast/ is intentionally tracked so judges can verify deployment tx hashes on-chain.
 
 # contracts/lib/ is intentionally tracked (vendored) — EXCEPT iden3/contracts below.
 # Tradeoff: larger repo, but self-contained on clone — no install step needed.
@@ -66,7 +66,7 @@ secrets.yaml
 
 # Build folders
 .cre/
-contracts/deployments/
+# contracts/deployments/ is intentionally tracked so judges can see deployed addresses.
 
 # Vendored Chainlink lib — large, not authored by this project
 contracts/lib/chainlink-brownie-contracts/
@@ -85,4 +85,13 @@ frontend/src/assets/vite.svg
 indexer/abis/greeter-abi.json
 
 DROPPED_KURU.md
-*.js
+# *.js — allow keeper scripts, ignore only generated/temp files
+cre/notell-cre/my-workflow/*.js
+check_balance.js
+check_block.js
+check_tx.js
+run_checks_fetch.js
+run_checks_native.js
+get_policy_4.js
+fetch_p4_indexer.js
+test_alchemy.js
