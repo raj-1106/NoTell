@@ -327,7 +327,8 @@ function App() {
       appendLog("ZK Proof computed successfully (1.2s)");
       await new Promise(r => setTimeout(r, 500));
       appendLog("Submitting proof to InsurancePool smart contract...");
-      const tx = await pool.processClaim(claimPolicyId, a, b, c, publicSignals);
+      const currentNonce = await signer.provider!.getTransactionCount(account, "latest");
+      const tx = await pool.processClaim(claimPolicyId, a, b, c, publicSignals, { nonce: currentNonce });
       await tx.wait();
       appendLog(`✅ Claim confirmed! Tx: ${tx.hash.slice(0, 10)}...${tx.hash.slice(-8)}`);
       localStorage.setItem(`notell_proof_${claimPolicyId}`, JSON.stringify(localLogs));
