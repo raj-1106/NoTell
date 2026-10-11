@@ -12,6 +12,7 @@ import { decodeError } from './lib/decodeError';
 import { Interface } from 'ethers';
 import { HoldingPeriodBadge } from './components/HoldingPeriodBadge';
 import { ProtocolGuide } from './components/ProtocolGuide';
+import { LandingPage } from './components/LandingPage';
 
 declare global {
   interface Window {
@@ -80,6 +81,43 @@ function App() {
   
   // Oracle countdown state
   const [oracleCountdown, setOracleCountdown] = useState<number | null>(null);
+
+  // View state: 'landing' or 'dashboard'
+  const [currentView, setCurrentView] = useState<'landing' | 'dashboard'>(() => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash.toLowerCase();
+      const search = window.location.search.toLowerCase();
+      if (hash === '#app' || hash === '#dashboard' || search.includes('app=true') || window.location.pathname === '/app') {
+        return 'dashboard';
+      }
+    }
+    return 'landing';
+  });
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.toLowerCase();
+      if (hash === '#app' || hash === '#dashboard') {
+        setCurrentView('dashboard');
+      } else if (hash === '' || hash === '#' || hash === '#landing') {
+        setCurrentView('landing');
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  const handleLaunchApp = () => {
+    window.location.hash = 'app';
+    setCurrentView('dashboard');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleBackToLanding = () => {
+    window.location.hash = '';
+    setCurrentView('landing');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   useEffect(() => {
     if (oracleCountdown === null || oracleCountdown <= 0) return;
@@ -431,18 +469,48 @@ function App() {
     }
   };
 
-  return (
-    <div className="app-container">
-      <header className="header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
-            <h1>NoTell Cover</h1>
-            {account && (
-              <div className="mono" style={{ color: 'var(--text-muted)' }}>
-                {account.slice(0, 6)}...{account.slice(-4)}
+    if (currentView === 'landing') {
+      return <LandingPage onLaunchApp={handleLaunchApp} />;
+    }
+
+    return (
+      <div className="app-container">
+        <header className="header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '2rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+              <div 
+                onClick={handleBackToLanding}
+                style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
+                title="Return to Landing Page"
+              >
+                <svg width="28" height="28" viewBox="0 0 120 120" role="img" aria-label="NoTell logo">
+                  <rect x="2" y="2" width="116" height="116" rx="22" fill="#141715" stroke="#2A2F2B" strokeWidth="3" />
+                  <path d="M30 28h13v64H30zM77 28h13v64H77zM30 28h15l45 64H75z" fill="#F2F0E9" />
+                  <rect x="18" y="56" width="84" height="8" fill="#141715" />
+                  <rect x="22" y="58" width="76" height="4" rx="1" fill="#5E8C6A" />
+                </svg>
+                <h1 style={{ fontSize: '1.75rem', margin: 0 }}>NoTell</h1>
               </div>
-            )}
-          </div>
+              <button 
+                onClick={handleBackToLanding}
+                style={{
+                  fontSize: '0.8rem',
+                  padding: '4px 10px',
+                  background: 'transparent',
+                  border: '1px solid var(--rule)',
+                  borderRadius: '4px',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer'
+                }}
+              >
+                ← Home
+              </button>
+              {account && (
+                <div className="mono" style={{ color: 'var(--text-muted)' }}>
+                  {account.slice(0, 6)}...{account.slice(-4)}
+                </div>
+              )}
+            </div>
           <div>
             {!account ? (
               <button className="btn-primary" onClick={connectWallet}>
