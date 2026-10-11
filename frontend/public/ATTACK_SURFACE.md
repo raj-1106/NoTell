@@ -1,33 +1,79 @@
 # NoTell Attack Surface & Security Posture
 
-This document outlines the known cryptographic limitations and attack vectors in NoTell V1, specifically regarding the zero-knowledge verification mechanisms, and the scoped upgrades for V2.
+This document outlines the known cryptographic limitations, architectural trade-offs, and attack vectors in NoTell V1, along with the scoped upgrades for production V2.
 
-## 1. The Parametric "Dummy Position" Exploit (ZK Bounding Gap)
+---
 
-### The Structural Gap
-In NoTell V1, the Groth16 circuit (`shortfall.circom`) is designed to prove that an account's shortfall is non-zero (`shortfall != 0`) without revealing the exact numeric value of the shortfall or the position size. This was implemented using Circom's `IsZero` template to enforce absolute privacy.
+## 1. Primary Vulnerability: Unauthenticated `postCommitment` (Free Payout Forgery)
 
-Because the ZK proof only verifies the *existence* of a shortfall and not its magnitude, the `InsurancePool` smart contract has no cryptographic guarantee that the claimed payout bears any proportional relationship to the real economic loss. 
+### The Structural Vulnerability
+In the deployed V1 `PolicyRegistry`, the `postCommitment` entry point has no caller access control (`msg.sender` check), no signature verification from an oracle network, and no on-chain read from the lending market comptroller:
 
-To handle claims without knowing the exact loss, V1 uses a deterministic, parametric payout structure where the cap is derived mechanically: `maxPayout = 10 * premiumPaid`. Because the premium is strictly enforced at 1% of the chosen notional (`premium = notional * 0.01`), the payout cap is mathematically locked to exactly 10% of notional (`10 * 0.01 * notional = notional / 10`) for every single policy.
+```solidity
+function postCommitment(
+    uint256 policyId,
+    uint256 roundId,
+    uint256 liquidity,
+    uint256 shortfall,
+    uint256 commitment
+) external {
+    Policy storage p = policies[policyId];
+    if (p.state != PolicyState.Active) revert PolicyNotActive(policyId);
+    require(shortfall > 0, "No shortfall: position is healthy");
 
-### The Attack Vector
-This parametric decoupling between actual loss and payout makes the contract vulnerable to intentional dummy-liquidations. Because the `ClaimVerifier` strictly checks that the ZK shortfall commitment belongs to the specific `policyId` being claimed against, an attacker must manipulate the health factor of the *exact same wallet address* that holds the policy:
+    commitments[policyId][roundId] = commitment;
+    emit ClaimWindowOpened(policyId, roundId, liquidity, shortfall);
+}
+```
 
-1. An attacker uses their primary wallet to buy a massive insurance policy (e.g., 50,000 ETH notional, paying a 500 ETH premium). This locks in a maximum payout cap of 5,000 ETH (`500 * 10`).
-2. The attacker uses that *exact same wallet address* to open a tiny, isolated "dummy" position on the money market (e.g., supplying $20 of collateral and borrowing $15).
-3. The attacker intentionally lets the $20 dummy position become undercollateralized (shortfall > 0).
-4. The keeper bot generates a valid ZK proof using the wallet's dummy position commitment hash. Since the dummy position lives on the same address that owns the policy, the commitment perfectly binds to the `policyId`. 
-5. The attacker submits the proof to claim the massive 5,000 ETH payout.
+### The Exploit Vector
+1. Any actor buys cover for a 1% premium (e.g. paying 0.01 MON for a 1.0 MON policy).
+2. The actor waits out the 288,000-block holding period (~25 hours on Monad testnet).
+3. The actor computes off-chain a Poseidon hash for arbitrary fabricated values (e.g., `liquidity = 0, shortfall = 1000`) and calls `postCommitment` directly with `shortfall > 0`.
+4. The actor generates a valid Groth16 proof matching those fabricated values and calls `processClaim`.
+5. The `InsurancePool` verifies the proof against the stored commitment and releases the fixed 10% payout (0.1 MON).
 
-Because the circuit only proves `shortfall != 0`, the verifier accepts the proof. The smart contract, completely blind to the fact that the actual loss was only $5, pays out the fixed 5,000 ETH parametric cap. **The attacker always nets exactly 10% of whatever notional they bought, regardless of the real loss.** This allows them to drain the pool's LPs for massive profit at virtually zero cost.
+**Result:** A policyholder can extract 10% of notional for a 1% premium without maintaining any collateral or borrowing position on a lending market. This completely subsumes the dummy-position exploit below.
 
-### V2 Cryptographic Fix
-This cannot be patched with Solidity parameter tweaks (such as letting the user choose their own premium or cap) because the gap is structural within the circuit constraints. No matter how the cap is calculated on-chain, as long as the payout is decoupled from the verified loss, the exploit remains profitable.
+---
 
-The V2 fix requires extending the ZK circuit to prove a numerical bound. The user must provide their `requestedPayout` as a public input to the circuit. 
-The circuit must enforce a comparative constraint:
-`shortfall >= requestedPayout` 
-(or a similar bounding constraint relative to the exact liquidation penalty mechanics).
+## 2. Public Event Inputs: Cleartext Disclosure in V1
 
-This cryptographic bound ensures the user can only claim up to their actual economic loss, definitively neutralizing the dummy position exploit while still keeping the exact position size mathematically concealed behind the zero-knowledge proof.
+In NoTell V1, `ClaimWindowOpened` emits `liquidity` and `shortfall` in plaintext:
+
+```solidity
+emit ClaimWindowOpened(policyId, roundId, liquidity, shortfall);
+```
+
+### Implications
+- In this V1 deployment, health factor deltas are public on-chain in event logs, allowing any observer to inspect the account's state and recompute the Poseidon commitment.
+- The browser frontend reads these values from the Envio indexer to construct the ZK witness without requiring archive RPC nodes on Monad testnet.
+- Consequently, V1 does **not** hide health factors or shortfall numbers from observers. Complete privacy requires client-side proof generation with DON multi-signatures directly over the commitment hash.
+
+---
+
+## 3. The Parametric "Dummy Position" Exploit (ZK Bounding Gap)
+
+### The Gap
+The Groth16 circuit (`shortfall.circom`) proves only that `shortfall != 0`, not its quantitative magnitude.
+Because V1 pays a fixed parametric multiple `min(notional, 10 * premiumPaid)` (10% of notional), an attacker with a real undercollateralized position of just $1 can claim against a $1,000,000 policy held on the same address.
+
+### Mitigation in V2
+Extending the circuit constraints so that `requestedPayout` is a public input and the circuit enforces `shortfall >= requestedPayout`.
+
+---
+
+## 4. Additional Deployed Contract Limitations (V1)
+
+1. **No on-chain persistence check:** The contract does not enforce a two-consecutive-poll persistence check; a single keeper transaction opens the claim window.
+2. **Keeper-computed commitments:** The Poseidon hash is calculated off-chain by the keeper bot, not in an on-chain precompile or circuit contract.
+3. **Overwriteable commitments (griefing):** A second call to `postCommitment` for the same `(policyId, roundId)` overwrites the stored commitment, allowing griefing against in-flight proof submissions.
+4. **Uninitialized policy ID acceptance (indexer poisoning):** Uninitialized mapping entries default to enum index 0 (`PolicyState.Active`), so arbitrary policy IDs can have commitments posted to pollute indexer state.
+5. **Unchecked `roundId` freshness:** Any arbitrary `uint256` is accepted as `roundId` without checking against recent block numbers.
+6. **ABI-stable stub on `checkHealthFactors`:** `CREBridge` calls `checkHealthFactors`, which is an empty no-op stub on this registry deployment.
+
+---
+
+## 5. Formal Test Suite
+
+These behaviors are formally covered by Foundry unit tests in [`contracts/test/PostCommitment.t.sol`](./contracts/test/PostCommitment.t.sol) (31/31 passing tests), documenting current V1 behavior and edge cases.

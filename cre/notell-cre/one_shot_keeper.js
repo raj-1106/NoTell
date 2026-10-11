@@ -42,7 +42,11 @@ async function main() {
   const roundId = await provider.getBlockNumber();
   let posted = 0;
 
-  for (let i = 0; i < Number(nextId); i++) {
+  const targetArg = process.argv[2];
+  const targetId = targetArg !== undefined && targetArg !== '' ? Number(targetArg) : null;
+  const policyIdsToProcess = targetId !== null ? [targetId] : Array.from({ length: Number(nextId) }, (_, i) => i);
+
+  for (const i of policyIdsToProcess) {
     const p = await registry.policies(i);
     const state = Number(p[5]);
     if (state !== 0) {

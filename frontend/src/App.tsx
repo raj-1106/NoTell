@@ -755,7 +755,7 @@ function App() {
                         if (policy.claimShortfall != null) setClaimShortfall(policy.claimShortfall.toString());
                         showToast("Commitment Found", `Located oracle data at Block ${policy.claimRoundId} via Envio Indexer.`, "success");
                       } else {
-                        showToast("Not Found", "No oracle commitment detected in Envio yet. The CRE workflow may not have polled.", "info");
+                        showToast("Not Found", "No oracle commitment detected in Envio yet. The keeper may not have posted yet.", "info");
                       }
                       return; // Always exit if Envio was reachable, do not fall back.
                     } catch (err) {

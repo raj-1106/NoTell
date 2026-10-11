@@ -1,35 +1,79 @@
-# NoTell Attack Surface and Accepted Gaps
+# NoTell Attack Surface & Security Posture
 
-This document tracks known security boundaries, threat models, and explicitly accepted gaps in the NoTell product architecture.
+This document outlines the known cryptographic limitations, architectural trade-offs, and attack vectors in NoTell V1, along with the scoped upgrades for production V2.
 
-## 1. Deploy-Time Trust Window
-**The Mechanism:** The `PolicyRegistry` constructor captures `msg.sender` as the `deployer`. The `setInsurancePool`, `setPoseidon`, and `setCREAddress` functions are restricted to this `deployer` address.
-**Why it is accepted:** This is a one-time setup step documented in Phase 1. Once all three setters have been called, the `deployer` has no further special privileges, freezing the trust window. Users verifying the contracts must check that these setters have already been executed and cannot be called again before trusting the policy issuance logic.
+---
 
-## 2. Flat Premium Pricing
-**The Mechanism:** All policies cost exactly `PREMIUM_BPS` (100 bps or 1%) of the chosen notional amount, regardless of how close the Peridot position is to liquidation.
-**Why it is accepted:** Discussed in Q2 of the Phase 1 design. This is a known limitation of the MVP model to keep the contracts simple. The "binary exclusion zone" (Q1) prevents buying a policy for an already-underwater position, which is the baseline defense.
+## 1. Primary Vulnerability: Unauthenticated `postCommitment` (Free Payout Forgery)
 
-## 3. Chainlink CRE Forwarder Spoofing
-**The Mechanism:** The `CREBridge` contract accepts any call from the Monad Testnet Chainlink `KeystoneForwarder`. Because there is only one Forwarder per chain shared by all CRE workflows, any other team deploying a workflow on the same testnet could route a payload to our `CREBridge.onReport` function.
-**Why it is accepted:** The risk is constrained by two factors:
-1. The random payload must decode into a valid `uint256[]` without reverting.
-2. Even if it succeeds, `checkHealthFactors` is safe to call arbitrarily. It cannot inject false data or force an invalid commitment.
-**Future Mitigation:** The bridge must be updated to decode and verify `workflowOwner` and `workflowName` identifiers explicitly.
+### The Structural Vulnerability
+In the deployed V1 `PolicyRegistry`, the `postCommitment` entry point has no caller access control (`msg.sender` check), no signature verification from an oracle network, and no on-chain read from the lending market comptroller:
 
-## 3b. TEMPORARY: Centralized Keeper Fallback
-**The Mechanism:** Due to Chainlink manual review delays for live deployment access on the Monad testnet, the `PolicyRegistry.creAddress` is temporarily pointed directly at the `deployer` EOA wallet. A local Node.js Keeper script uses the deployer private key to poll the Comptroller and call `checkHealthFactors`.
-**Why it is accepted:** This is strictly an emergency unblocker to allow the end-to-end ZK claim flow to be tested and demoed. 
-**Future Mitigation:** Once Chainlink approves the deployment, this script will be killed and `creAddress` will be restored to the decentralized `CREBridge`.
+```solidity
+function postCommitment(
+    uint256 policyId,
+    uint256 roundId,
+    uint256 liquidity,
+    uint256 shortfall,
+    uint256 commitment
+) external {
+    Policy storage p = policies[policyId];
+    if (p.state != PolicyState.Active) revert PolicyNotActive(policyId);
+    require(shortfall > 0, "No shortfall: position is healthy");
 
-## 4. Cron Gas Scaling
-**The Mechanism:** The Chainlink CRE workflow queries `nextPolicyId` and iterates over every policy ever issued in every 5-minute poll.
-**Why it is accepted:** For a hackathon demo, the number of policies issued will remain small (under 100), meaning the gas cost easily stays within the Chainlink Forwarder's block limit.
+    commitments[policyId][roundId] = commitment;
+    emit ClaimWindowOpened(policyId, roundId, liquidity, shortfall);
+}
+```
 
-## 5. Self-Inflicted Cap Limits
-**The Mechanism:** The `MAX_PAYOUT_RATIO` mathematically caps the claim payout to 10% of the policy's notional value. This creates a hard ceiling on the financial reward a user can extract from the pool.
-**Why it is accepted:** This is the primary defense against self-inflicted liquidations. Without this cap, a user could take out a massive policy, intentionally collapse their Peridot position, and drain the insurance pool for profit. Capping the payout at 10% ensures that the capital lost in the Peridot liquidation strictly exceeds the insurance payout, breaking the economic incentive to attack the protocol.
+### The Exploit Vector
+1. Any actor buys cover for a 1% premium (e.g. paying 0.01 MON for a 1.0 MON policy).
+2. The actor waits out the 288,000-block holding period (~25 hours on Monad testnet).
+3. The actor computes off-chain a Poseidon hash for arbitrary fabricated values (e.g., `liquidity = 0, shortfall = 1000`) and calls `postCommitment` directly with `shortfall > 0`.
+4. The actor generates a valid Groth16 proof matching those fabricated values and calls `processClaim`.
+5. The `InsurancePool` verifies the proof against the stored commitment and releases the fixed 10% payout (0.1 MON).
 
-## 6. Mass-Claim Liquidity Risks
-**The Mechanism:** The `InsurancePool` is not technically "isolated" per policy. It relies on a pooled liquidity model where premiums and underwriter capital sit in a single contract balance. If a systemic event causes massive simultaneous Peridot liquidations, a correlated mass-claim event could occur.
-**Why it is accepted:** If total valid claims exceed the `InsurancePool` balance, late claimers will encounter a `transfer` revert until more capital is injected (via premiums or LP deposits). This is a known liquidity limit of V1. The 24-hour holding period staggers the claim window, but does not solve the fundamental capital-efficiency problem of under-collateralized insurance. 
+**Result:** A policyholder can extract 10% of notional for a 1% premium without maintaining any collateral or borrowing position on a lending market. This completely subsumes the dummy-position exploit below.
+
+---
+
+## 2. Public Event Inputs: Cleartext Disclosure in V1
+
+In NoTell V1, `ClaimWindowOpened` emits `liquidity` and `shortfall` in plaintext:
+
+```solidity
+emit ClaimWindowOpened(policyId, roundId, liquidity, shortfall);
+```
+
+### Implications
+- In this V1 deployment, health factor deltas are public on-chain in event logs, allowing any observer to inspect the account's state and recompute the Poseidon commitment.
+- The browser frontend reads these values from the Envio indexer to construct the ZK witness without requiring archive RPC nodes on Monad testnet.
+- Consequently, V1 does **not** hide health factors or shortfall numbers from observers. Complete privacy requires client-side proof generation with DON multi-signatures directly over the commitment hash.
+
+---
+
+## 3. The Parametric "Dummy Position" Exploit (ZK Bounding Gap)
+
+### The Gap
+The Groth16 circuit (`shortfall.circom`) proves only that `shortfall != 0`, not its quantitative magnitude.
+Because V1 pays a fixed parametric multiple `min(notional, 10 * premiumPaid)` (10% of notional), an attacker with a real undercollateralized position of just $1 can claim against a $1,000,000 policy held on the same address.
+
+### Mitigation in V2
+Extending the circuit constraints so that `requestedPayout` is a public input and the circuit enforces `shortfall >= requestedPayout`.
+
+---
+
+## 4. Additional Deployed Contract Limitations (V1)
+
+1. **No on-chain persistence check:** The contract does not enforce a two-consecutive-poll persistence check; a single keeper transaction opens the claim window.
+2. **Keeper-computed commitments:** The Poseidon hash is calculated off-chain by the keeper bot, not in an on-chain precompile or circuit contract.
+3. **Overwriteable commitments (griefing):** A second call to `postCommitment` for the same `(policyId, roundId)` overwrites the stored commitment, allowing griefing against in-flight proof submissions.
+4. **Uninitialized policy ID acceptance (indexer poisoning):** Uninitialized mapping entries default to enum index 0 (`PolicyState.Active`), so arbitrary policy IDs can have commitments posted to pollute indexer state.
+5. **Unchecked `roundId` freshness:** Any arbitrary `uint256` is accepted as `roundId` without checking against recent block numbers.
+6. **ABI-stable stub on `checkHealthFactors`:** `CREBridge` calls `checkHealthFactors`, which is an empty no-op stub on this registry deployment.
+
+---
+
+## 5. Formal Test Suite
+
+These behaviors are formally covered by Foundry unit tests in [`contracts/test/PostCommitment.t.sol`](./contracts/test/PostCommitment.t.sol) (31/31 passing tests), documenting current V1 behavior and edge cases.

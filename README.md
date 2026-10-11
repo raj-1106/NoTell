@@ -16,9 +16,9 @@ You should be able to hedge that risk without showing your hand.
 
 ## The solution
 
-NoTell is a parametric liquidation insurance protocol deployed on Monad testnet. A user buys coverage, and if their position becomes liquidatable, they can claim a payout, privately. The chain learns that a hand was played and that it was a winner. It never learns the cards.
+NoTell is a parametric liquidation insurance protocol deployed on Monad testnet. A user buys coverage, and if their position becomes liquidatable, they can claim a parametric payout.
 
-The claim is backed by a Groth16 ZK-SNARK, generated entirely in the browser via a Circom circuit. The proof establishes that a committed shortfall is non-zero, without ever revealing the user's collateral, debt, or exact liquidation threshold on-chain. `InsurancePool` verifies the proof and releases the payout without ever learning the underlying numbers.
+The claim is backed by a Groth16 ZK-SNARK, generated entirely in the browser via a Circom circuit. The proof establishes that an account's committed shortfall is non-zero against an oracle commitment. In this V1 deployment, the keeper emits the commitment inputs in `ClaimWindowOpened` for off-chain indexing; production V2 client-side proving and privacy trade-offs are documented in `ATTACK_SURFACE.md`.
 
 ## Architecture
 
@@ -38,11 +38,11 @@ The protocol's time-based parameters (`HOLDING_PERIOD`, `MAX_PROOF_AGE_BLOCKS`) 
 
 **Track 01 — Onchain Finance & Trading.** NoTell prices and caps risk the same way other financial primitives in this track do: liquidation exposure priced at purchase, a bounded payout at claim time.
 
-**Chainlink — Best workflow with CRE.** We built and simulation-verified a CRE workflow targeting `CREBridge.onReport()`, confirmed against the Forwarder address for Monad testnet. As of this submission, Chainlink confirmed directly with us that CRE does not yet support production on-chain writes to Monad testnet, only Monad mainnet. Until that lands, live commitment-posting runs through `run_keeper.js`, which performs the identical on-chain call (`checkHealthFactors`) the CRE DON would make. Documented in `ATTACK_SURFACE.md`.
+**Chainlink — Best workflow with CRE.** As of this submission, Chainlink confirmed directly with us that CRE does not yet support production on-chain writes to Monad testnet, only Monad mainnet. Until that lands, commitments are posted by a keeper script (`one_shot_keeper.js`) that calls `PolicyRegistry.postCommitment()` directly. The CRE workflow targets `CREBridge.onReport()` and was simulation-verified against an earlier deployment. Documented in `ATTACK_SURFACE.md`.
 
 **Envio — Best Use of Envio.** The frontend queries a live Envio GraphQL indexer for policy state and claim-window data, with a visible fallback (direct `eth_call` scan) if the indexer is unreachable. The fallback is surfaced to the user, not silently substituted.
 
-**Alchemy — Best Projects using Alchemy.** The keeper and the Envio indexer sync use Alchemy RPC endpoints. Some one-off checks and earlier local runs used the public Monad RPC.
+**Alchemy — Best Projects using Alchemy.** Every contract deployment, wiring verification, and Keeper transaction runs through a dedicated Alchemy RPC endpoint. The Envio indexer also syncs via Alchemy, since HyperSync requires an auth token not yet available for Monad testnet.
 
 ## Security posture
 
@@ -67,11 +67,21 @@ cd indexer && docker compose up -d
 cd frontend && npm run dev
 
 # Keeper (posts oracle commitments; required for a full local claim)
-cd cre/notell-cre && node run_keeper.js
+cd cre/notell-cre && node one_shot_keeper.js
 ```
 
-A complete end-to-end claim requires Docker running (Envio), the Keeper running (commitment posting), and a wallet connected to Monad testnet. No wallet, no seat at the table.
+A complete end-to-end claim requires Envio indexing, the Keeper posting commitments, and a connected Monad testnet wallet.
 
-## Deployed contracts
+## Deployed contracts (Monad Testnet - Chain ID: 10143)
 
-See `deployments/monad-testnet.json` for current addresses on Monad testnet.
+| Contract | Address |
+|---|---|
+| `InsurancePool` | `0x9f9dd3a65d39cde4657bab7d100eb93ceffc07e9` |
+| `PolicyRegistry` | `0x87fe1f2479be5d332dde97bc649370e300d64c55` |
+| `MockComptroller` | `0x3d702b11bb88fac0151714a37414ef90866dcb2e` |
+| `CREBridge` | `0xb2eaed1122cd332f46ad9841f6ccf4ee74cf6295` |
+| `ClaimVerifier` | `0x65eD7daF272194C27F236722334d20D713f2eF52` |
+| `Groth16Verifier` | `0xe525941ceEE47726Ae8cf7329c1fa93b1DAB8374` |
+
+- **Hosted Envio HyperIndex:** `https://indexer.dev.hyperindex.xyz/84dad5e/v1/graphql`
+- **Live dApp:** `https://no-tell.vercel.app`
