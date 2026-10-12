@@ -71,6 +71,12 @@ Extending the circuit constraints so that `requestedPayout` is a public input an
 4. **Uninitialized policy ID acceptance (indexer poisoning):** Uninitialized mapping entries default to enum index 0 (`PolicyState.Active`), so arbitrary policy IDs can have commitments posted to pollute indexer state.
 5. **Unchecked `roundId` freshness:** Any arbitrary `uint256` is accepted as `roundId` without checking against recent block numbers.
 6. **ABI-stable stub on `checkHealthFactors`:** `CREBridge` calls `checkHealthFactors`, which is an empty no-op stub on this registry deployment.
+7. **Chainlink CRE cannot write to Monad testnet:** Chainlink's release notes list production onchain writes for Monad mainnet and local simulation only for testnet. A CRE simulation against Monad testnet did not reach a completed write in our testing. Commitments are posted by a keeper script, and CREBridge currently calls a no-op stub (item 6), so CRE does not drive the claim path in this deployment.
+8. **Correlated claims can drain the pool:** There is no utilization-based pricing or tranching. A shock that produces many valid claims can exceed pool assets.
+9. **Deploy-time setter window:** One-time setters (insurance pool, CRE address, Poseidon, claim verifier) leave a deploy-time window in which the deployer chooses the addresses. After that window closes, changing them requires a redeploy.
+10. **buyPolicy does not require durationBlocks to exceed HOLDING_PERIOD:** A policy bought with durationBlocks equal to the holding period expires at the block it becomes claimable.
+11. **Mock lending market:** The lending market is a mock (`MockComptroller`), because no Compound-style market with a `getAccountLiquidity` interface was live on Monad testnet.
+12. **Historical state requests returned HTTP 503:** Our requests for state at blocks roughly 100,000 blocks old returned HTTP 503 on the Alchemy endpoint. We did not establish why.
 
 ---
 
