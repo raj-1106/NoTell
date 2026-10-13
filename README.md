@@ -163,7 +163,7 @@ NoTell builds upon and integrates several open-source libraries and protocols:
 
 ## AI Disclosure
 
-In accordance with Hackathon rules, AI coding assistants (including Antigravity, Claude, and GitHub Copilot) were utilized during the hackathon development window for scaffolding, test writing, and documentation refinement. All protocol architecture, zero-knowledge circuit constraints, smart contract business logic, and on-chain verification were designed, implemented, and validated by the team.
+In accordance with Hackathon rules, AI coding assistants (including Antigravity, Claude, and GitHub Copilot) were utilized during the hackathon development window for scaffolding, test writing, and documentation refinement. All protocol architecture, zero-knowledge circuit constraints, smart contract business logic, and on-chain verification were designed, implemented, and validated by me.
 
 ## License
 
