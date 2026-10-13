@@ -160,6 +160,11 @@ NoTell builds upon and integrates several open-source libraries and protocols:
 * **[Envio HyperIndex](https://envio.dev):** Real-time multi-chain event indexing framework and GraphQL schema generator.
 * **[Chainlink CRE](https://chain.link):** Chainlink Runtime Environment for decentralized oracle computation and workflow simulation.
 
+
+## AI Disclosure
+
+In accordance with Hackathon rules, AI coding assistants (including Antigravity, Claude, and GitHub Copilot) were utilized during the hackathon development window for scaffolding, test writing, and documentation refinement. All protocol architecture, zero-knowledge circuit constraints, smart contract business logic, and on-chain verification were designed, implemented, and validated by the team.
+
 ## License
 
 This project is open-source software licensed under the [MIT License](./LICENSE).
