@@ -55,7 +55,7 @@ export const onCronTrigger = async (runtime: Runtime<Config>): Promise<string> =
 
 	// 2. Query the PolicyRegistry for nextPolicyId using standard viem
 	const publicClient = createPublicClient({
-		transport: http('https://monad-testnet.g.alchemy.com/v2/OOIMS_hWS2oBIZXbMyjTG'),
+		transport: http('https://testnet-rpc.monad.xyz'),
 	})
 
 	const nextPolicyId = await publicClient.readContract({

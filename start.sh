@@ -28,7 +28,7 @@ tmux send-keys    -t $SESSION:indexer "cd $(pwd)/frontend && npm run dev -- --ho
 if [[ "$1" == "--keeper" ]]; then
   tmux split-window -t $SESSION:indexer -h
   tmux send-keys    -t $SESSION:indexer "cd $(pwd)/cre/notell-cre && node run_keeper.js" Enter
-  echo " Keeper started (Policy Registry: 0xcDF2c6f314FEAB8aC1e0bB89a0F22a9009848b41)"
+  echo " Keeper started (Policy Registry: 0x87fe1f2479be5d332dde97bc649370e300d64c55)"
 fi
 
 # Make panes roughly equal size
@@ -37,7 +37,7 @@ tmux select-layout -t $SESSION:indexer even-vertical 2>/dev/null || true
 echo ""
 echo " NoTell started in tmux session '$SESSION'"
 echo ""
-echo "   Frontend:  http://localhost:5176/"
+echo "   Frontend:  http://localhost:5173/"
 echo "   Indexer:   http://localhost:8080  (GraphQL, password: testing)"
 echo ""
 echo "To attach:   tmux attach -t $SESSION"
