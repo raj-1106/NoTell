@@ -52,13 +52,13 @@ NoTell is natively designed for and deployed on **Monad Testnet** (Chain ID: `10
 
 ## Bounties Targeted
 
-**Track 01 — Onchain Finance & Trading.** NoTell prices and caps risk the same way other financial primitives in this track do: liquidation exposure priced at purchase, a bounded payout at claim time.
+**Track 01 - Onchain Finance & Trading.** NoTell prices and caps risk the same way other financial primitives in this track do: liquidation exposure priced at purchase, a bounded payout at claim time.
 
-**Chainlink — Best workflow with CRE.** As of this submission, Chainlink confirmed directly with us that CRE does not yet support production on-chain writes to Monad testnet, only Monad mainnet. Until that lands, commitments are posted by a keeper script (`one_shot_keeper.js`) that calls `PolicyRegistry.postCommitment()` directly. The CRE workflow targets `CREBridge.onReport()` and was dry-run simulated. Documented in `ATTACK_SURFACE.md`.
+**Chainlink - Best workflow with CRE.** As of this submission, Chainlink confirmed directly with us that CRE does not yet support production on-chain writes to Monad testnet, only Monad mainnet. Until that lands, commitments are posted by a keeper script (`one_shot_keeper.js`) that calls `PolicyRegistry.postCommitment()` directly. The CRE workflow targets `CREBridge.onReport()` and was dry-run simulated. Documented in `ATTACK_SURFACE.md`.
 
-**Envio — Best Use of Envio.** The frontend queries a live Envio GraphQL indexer for policy state and claim-window data, with a visible fallback (direct `eth_call` scan) if the indexer is unreachable. The fallback is surfaced to the user, not silently substituted.
+**Envio - Best Use of Envio.** The frontend queries a live Envio GraphQL indexer for policy state and claim-window data, with a visible fallback (direct `eth_call` scan) if the indexer is unreachable. The fallback is surfaced to the user, not silently substituted.
 
-**Alchemy — Best Projects using Alchemy.** Our Foundry configuration points at an Alchemy Monad Testnet endpoint (MONAD_RPC_URL). Some commands and one-off checks used the public Monad RPC. The Envio indexer syncs over RPC because HyperSync needs an auth token we did not have.
+**Alchemy - Best Projects using Alchemy.** Our Foundry configuration points at an Alchemy Monad Testnet endpoint (MONAD_RPC_URL). Some commands and one-off checks used the public Monad RPC. The Envio indexer syncs over RPC because HyperSync needs an auth token we did not have.
 
 ## Security Posture
 
